@@ -4,7 +4,7 @@
   <img src="images/demo_extension.gif" alt="Demo Project" width="700">
 </p>
 
-This project builds an End-to-End Machine Learning system for Sentiment Analysis on Youtube comments. It utilizes DVC for data pipeline management and implements automated deployment (CI/CD) to AWS using Github Actions.
+This project builds an End-to-End Machine Learning system for Sentiment Analysis based on Youtube comments. It utilizes DVC for data pipeline management and implements automated deployment (CI/CD) to AWS using Github Actions.
 
 ## Table of Contents
 - [System Overview](#system-overview)
@@ -12,6 +12,7 @@ This project builds an End-to-End Machine Learning system for Sentiment Analysis
   - [Prerequisites](#prerequisites)
   - [Local Setup (Conda)](#local-setup-conda)
   - [DVC Setup](#dvc-setup)
+- [Model Experimentation & Selection](#model-experimentation--selection)  
 - [How to Run](#how-to-run)
 - [Deployment (AWS CI/CD)](#deployment-aws-ci-cd)
   - [IAM & ECR Setup](#1-iam--ecr-setup)
@@ -95,36 +96,64 @@ aws configure
 
 -----
 
-## How to Run
+## Model Experimentation & Selection
 
-Once the application is running, you can test it via API or the Chrome Extension.
+Before establishing the automated pipeline, an extensive experimentation phase was conducted to identify the optimal approach for this specific dataset.
 
-### Option 1: API Testing (Postman)
+```mermaid
+graph TD
+    Data[Raw Data] --> Process[Preprocessing & EDA]
+    Process -->|Handle Imbalance| Feat[Feature Engineering]
+    
+    subgraph "Vectorization Trials"
+        Feat --> BOW[Bag of Words]
+        Feat --> TFIDF[TF-IDF]
+        TFIDF --> MaxFeat[Tuning Max Features]
+    end
+    
+    subgraph "Model Trials"
+        MaxFeat --> RF[Random Forest]
+        MaxFeat --> XGB["XGBoost 
+                              (Hyperparam Tuning)"]
+        MaxFeat --> LGBM["LightGBM
+                              (Hyperparam Tuning)"]
+        MaxFeat --> Ens["Ensemble
+                              (LGBM + Logistic Reg)"]
+    end
+    
+    LGBM -->|Best Performance| Final["Final Model: LightGBM"]
+    
+    style Final fill:#bbf,stroke:#333,stroke-width:2px
+````
 
-**Endpoint:** `http://localhost:5000/predict`
+### Key Experiment Steps:
 
-**Method:** `POST`
+1.  **Data Analysis & Preprocessing:**
 
-**Sample JSON Body:**
+      * Conducted **EDA (Exploratory Data Analysis)** to understand data distribution.
+      * Applied text preprocessing techniques.
+      * Implemented strategies to handle **unbalanced data** effectively.
 
-```json
-{
-    "comments": [
-        "This video is awesome! I loved it a lot",
-        "Very bad explanation. Poor video"
-    ]
-}
-```
+2.  **Feature Engineering:**
 
-### Option 2: Chrome Extension (Frontend)
+      * Experimented with different vectorizers: **Bag of Words (BoW)** vs. **TF-IDF**.
+      * Fine-tuned the `max_features` parameter in TF-IDF to balance model complexity and performance.
 
-1.  Open Chrome and navigate to `chrome://extensions`.
-2.  Enable **Developer mode** (toggle at the top right).
-3.  Click **Load unpacked** (top left).
-4.  Select the folder named `yt-chrome-plugin-frontend`.
-5.  Navigate to any Youtube video, open the extension, and view the sentiment analysis based on the comments.
+3.  **Model Selection & Hyperparameter Tuning:**
+    Tested various algorithms to find the best fit:
 
------
+      * **Random Forest:** Baseline model.
+      * **XGBoost:** Applied hyperparameter tuning.
+      * **Ensemble Methods:** Experimented with combining **LightGBM** and **Logistic Regression**.
+      * **LightGBM:** Applied detailed hyperparameter tuning.
+
+### Final Decision:
+
+After rigorous evaluation, **LightGBM (with tuned hyperparameters)** was selected as the production model due to its superior balance of accuracy and inference speed.
+
+
+---
+
 
 ## Deployment (AWS CI/CD)
 ```mermaid
@@ -219,3 +248,34 @@ Go to Github Repo \> **Settings** \> **Secrets and variables** \> **Actions** an
 | `AWS_REGION` | e.g., `ap-southeast-2` |
 | `AWS_ECR_LOGIN_URI` | ECR URI (excluding the repo name). e.g., `256586140327.dkr.ecr.ap-southeast-2.amazonaws.com` |
 | `ECR_REPOSITORY_NAME` | The created repo name. e.g., `mlopprj` |
+
+---
+
+## How to Run
+
+Once the application is running, you can test it via API or the Chrome Extension.
+
+### Option 1: API Testing (Postman)
+
+**Endpoint:** `http://localhost:5000/predict`
+
+**Method:** `POST`
+
+**Sample JSON Body:**
+
+```json
+{
+    "comments": [
+        "This video is awesome! I loved it a lot",
+        "Very bad explanation. Poor video"
+    ]
+}
+```
+
+### Option 2: Chrome Extension (Frontend)
+
+1.  Open Chrome and navigate to `chrome://extensions`.
+2.  Enable **Developer mode** (toggle at the top right).
+3.  Click **Load unpacked** (top left).
+4.  Select the folder named `yt-chrome-plugin-frontend`.
+5.  Navigate to any Youtube video, open the extension, and view the sentiment analysis based on the comments.
